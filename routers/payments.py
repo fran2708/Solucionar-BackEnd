@@ -42,16 +42,16 @@ def create_payment(payload: PaymentCreate, session: SessionDep, current_user: Cu
     if service.provider_id == current_user.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No puedes reservar tu propio servicio.")
 
-    # Compute commission/neto if not provided
-    comision = payload.comision if payload.comision is not None and payload.monto else (round((payload.monto or 0) * DEFAULT_COMMISSION_RATE, 2))
-    neto = payload.neto if payload.neto is not None and payload.monto else (round((payload.monto or 0) - comision, 2) if payload.monto is not None else None)
+    # Compute commission/net_amount if not provided
+    commission = payload.commission if payload.commission is not None and payload.amount else (round((payload.amount or 0) * DEFAULT_COMMISSION_RATE, 2))
+    net_amount = payload.net_amount if payload.net_amount is not None and payload.amount else (round((payload.amount or 0) - commission, 2) if payload.amount is not None else None)
 
     updates = {
         "client_id": current_user.id,
-        "estado": PaymentStatus.INITIALIZED,
+        "status": PaymentStatus.INITIALIZED,
         "external_reference": str(uuid4()),
-        "comision": comision,
-        "neto": neto,
+        "commission": commission,
+        "net_amount": net_amount,
     }
 
     db_payment = Payment.model_validate(payload, update=updates)
@@ -85,8 +85,8 @@ def initiate_payment(payment_id: int, session: SessionDep, current_user: Current
     adapter = get_gateway_adapter(payment.gateway)
     initiation = adapter.initiate(payment)
 
-    payment.estado = PaymentStatus.PENDING
-    payment.actualizado_en = datetime.utcnow()
+    payment.status = PaymentStatus.PENDING
+    payment.updated_at = datetime.utcnow()
     session.add(payment)
     session.commit()
     session.refresh(payment)
@@ -124,12 +124,12 @@ def gateway_callback(payload: GatewayCallback, session: SessionDep):
 
     # Update transaction id and state via adapter
     payment.transaction_id = payload.transaction_id
-    payment.actualizado_en = datetime.utcnow()
+    payment.updated_at = datetime.utcnow()
 
     adapter = get_gateway_adapter(payment.gateway)
     normalized = adapter.normalize_status(payload.status)
     payment.transaction_status = normalized.transaction_status
-    payment.estado = normalized.payment_status
+    payment.status = normalized.payment_status
 
     # store entire gateway payload for audit
     if payload.raw is not None:
@@ -139,10 +139,10 @@ def gateway_callback(payload: GatewayCallback, session: SessionDep):
         payment.gateway_response = {"status": payload.status, "transaction_id": payload.transaction_id}
 
     # If payment approved, create reservation from intent if missing
-    if payment.estado == PaymentStatus.COMPLETED and not payment.reservation_id:
+    if payment.status == PaymentStatus.COMPLETED and not payment.reservation_id:
         if not payment.service_id or not payment.reservation_datetime or not payment.client_id:
             # insufficient data to create reservation
-            payment.estado = PaymentStatus.FAILED
+            payment.status = PaymentStatus.FAILED
         else:
             new_res = Reservation(
                 service_id=payment.service_id,
@@ -161,7 +161,7 @@ def gateway_callback(payload: GatewayCallback, session: SessionDep):
     session.commit()
     session.refresh(payment)
 
-    return {"ok": True, "payment_id": payment.id, "estado": payment.estado}
+    return {"ok": True, "payment_id": payment.id, "status": payment.status}
 
 
 @router.post("/{payment_id}/complete", response_model=PaymentPublic)
@@ -178,8 +178,8 @@ def complete_payment(payment_id: int, session: SessionDep, current_user: Current
     if payment.client_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No autorizado")
 
-    payment.estado = PaymentStatus.COMPLETED
-    payment.actualizado_en = datetime.utcnow()
+    payment.status = PaymentStatus.COMPLETED
+    payment.updated_at = datetime.utcnow()
 
     # Create reservation if not present
     if not payment.reservation_id:
@@ -207,7 +207,7 @@ def complete_payment(payment_id: int, session: SessionDep, current_user: Current
 @router.get("/my-payments", response_model=List[PaymentPublic])
 def list_my_payments(session: SessionDep, current_user: CurrentUser):
     """Lista los pagos relacionados con las reservas del usuario actual."""
-    statement = select(Payment).where(Payment.client_id == current_user.id).order_by(Payment.creado_en.desc())
+    statement = select(Payment).where(Payment.client_id == current_user.id).order_by(Payment.created_at.desc())
     payments = session.exec(statement).all()
     return payments
 

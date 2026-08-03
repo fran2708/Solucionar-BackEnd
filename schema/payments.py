@@ -42,10 +42,10 @@ class PaymentBase(SQLModel):
     reservation_datetime: datetime | None = None
     notes: str | None = None
     gateway: PaymentGateway | None = None
-    monto: float | None = None
-    moneda: str = "ARS"
-    comision: float | None = None
-    neto: float | None = None
+    amount: float | None = None
+    currency: str = "ARS"
+    commission: float | None = None
+    net_amount: float | None = None
     external_reference: str | None = None
 
 
@@ -53,11 +53,11 @@ class Payment(PaymentBase, table=True):
     __tablename__ = "payments"
 
     id: int | None = Field(default=None, primary_key=True)
-    estado: PaymentStatus = Field(default=PaymentStatus.INITIALIZED, index=True)
+    status: PaymentStatus = Field(default=PaymentStatus.INITIALIZED, index=True)
     transaction_id: str | None = Field(default=None, index=True)
     transaction_status: TransactionStatus | None = Field(default=None, index=True)
-    creado_en: datetime | None = Field(default_factory=datetime.utcnow)
-    actualizado_en: datetime | None = Field(default_factory=datetime.utcnow)
+    created_at: datetime | None = Field(default_factory=datetime.utcnow)
+    updated_at: datetime | None = Field(default_factory=datetime.utcnow)
 
     # Relationship to reservation
     reservation: "Reservation" | None = Relationship(
@@ -80,6 +80,6 @@ class PaymentCreate(PaymentBase):
 
 class PaymentPublic(PaymentBase):
     id: int
-    estado: PaymentStatus
-    creado_en: datetime | None
-    actualizado_en: datetime | None
+    status: PaymentStatus
+    created_at: datetime | None
+    updated_at: datetime | None
