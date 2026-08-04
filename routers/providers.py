@@ -11,6 +11,7 @@ from schema.providers import ProviderProfile
 from schema.services import Service
 from schema.reservations import Reservation, ReservationStatus
 from schema.reviews import ReservationReview
+from schema.groups import Group
 from core.enums import Role, CATEGORY_CHOICES, SERVICE_AREA_CHOICES
 
 router = APIRouter(prefix="/providers", tags=["providers"])
@@ -129,6 +130,10 @@ def upsert_my_provider(payload: ProviderUpsertRequest, current_user: Annotated[U
             setattr(profile, k, v)
     # elevate user role if profile is valid
     current_user.role = Role.PROVIDER
+
+    provider_group = session.exec(select(Group).where(Group.name == Role.PROVIDER.value)).first()
+    if provider_group and provider_group not in current_user.groups:
+        current_user.groups.append(provider_group)
 
     session.add(current_user)
     session.commit()

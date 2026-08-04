@@ -3,10 +3,11 @@
 # NO contienen endpoints ni lógica.
 # ------------------------------------------------------------
 from __future__ import annotations
+from datetime import date
 from pydantic import BaseModel, EmailStr
 from sqlmodel import SQLModel
 from typing import Optional
-from core.enums import Role, TaxStatus
+from core.enums import Role, TaxStatus, TipoDocumento
 
 
 class RegisterIn(BaseModel):
@@ -32,6 +33,9 @@ class RegisterRequest(SQLModel):
     phone: Optional[str] = None
     province: Optional[str] = None
     city: Optional[str] = None
+    tipo_documento: Optional[TipoDocumento] = None
+    nro_documento: Optional[str] = None
+    fecha_nacimiento: Optional[date] = None
 
 
 class UserPublic(SQLModel):
@@ -48,12 +52,18 @@ class UserProfilePublic(SQLModel):
     province: str | None = None
     city: str | None = None
     role: Role
+    tipo_documento: Optional[TipoDocumento] = None
+    nro_documento: Optional[str] = None
+    fecha_nacimiento: Optional[date] = None
 
 class UserProfileUpdate(SQLModel):
     full_name: str | None = None
     phone: str | None = None
     province: str | None = None
     city: str | None = None
+    tipo_documento: Optional[TipoDocumento] = None
+    nro_documento: Optional[str] = None
+    fecha_nacimiento: Optional[date] = None
 
 
 class ProviderUpsertRequest(SQLModel):

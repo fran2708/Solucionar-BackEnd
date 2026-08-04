@@ -43,3 +43,9 @@ class TipoArea(str, Enum):
     PRESENCIAL = "PRESENCIAL"  # en domicilio del cliente / lugar físico
     REMOTO = "REMOTO"          # online
     PERSONALIZADO = "PERSONALIZADO"  # texto libre en location_note
+
+class TipoDocumento(str, Enum):
+    DNI = "DNI"
+    PASAPORTE = "PASAPORTE"
+    CUIT = "CUIT"
+    CUIL = "CUIL"

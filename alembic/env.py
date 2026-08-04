@@ -17,7 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
 # Import models so SQLModel metadata gets populated
 # `schema` is a local package; having project root on `sys.path` above
 # ensures these imports work when Alembic runs.
-from schema import users, providers  # noqa: F401
+from schema import users, providers, groups, reservations, reviews, services, payments, auth  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

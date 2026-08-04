@@ -4,7 +4,8 @@ from typing import List, Optional, Annotated
 from fastapi import APIRouter, HTTPException, status, Depends, Query
 from sqlmodel import select, Session
 
-from core.enums import TipoArea, Role
+from core.enums import TipoArea
+from core.permissions import user_has_action
 from routers.auth import get_current_user
 from schema.users import User
 from schema.services import Category, Service, ServiceImage, ServiceSchedule
@@ -21,7 +22,7 @@ router = APIRouter(prefix="/services", tags=["services"])
 
 @router.post("/categorias", response_model=Category)
 def create_category(payload: Category, session: SessionDep, current: CurrentUser):
-    if current.role != Role.ADMIN:
+    if not user_has_action(current, "categorias:crear"):
         raise HTTPException(status_code=403, detail="Solo ADMIN")
     # slug uniqueness check
     existing = session.exec(select(Category).where(Category.slug == payload.slug)).first()
@@ -45,7 +46,7 @@ def get_category(cat_id: int, session: SessionDep):
 
 @router.delete("/categorias/{cat_id}")
 def delete_category(cat_id: int, session: SessionDep, current: CurrentUser):
-    if current.role != Role.ADMIN:
+    if not user_has_action(current, "categorias:eliminar"):
         raise HTTPException(status_code=403, detail="Solo ADMIN")
     cat = session.get(Category, cat_id)
     if not cat:
@@ -75,7 +76,7 @@ class ServiceCreatePayload(SQLModel):
 @router.post("/", response_model=Service)
 @router.post("", response_model=Service)  # allow both /services and /services/ without redirect
 def create_service(payload: ServiceCreatePayload, session: SessionDep, current: CurrentUser):
-    if current.role != Role.PROVIDER:
+    if not user_has_action(current, "servicios:crear"):
         raise HTTPException(status_code=403, detail="Solo proveedores")
     # Validaciones nuevas (permiten precio a convenir y duración indefinida = 0)
     if not payload.title.strip():
@@ -131,10 +132,11 @@ def list_services(session: SessionDep, q: Optional[str] = Query(None), category_
 
 @router.get("/mios", response_model=List[Service])
 def list_my_services(session: SessionDep, current: CurrentUser, active: Optional[bool] = None):
-    if current.role not in (Role.PROVIDER, Role.ADMIN):
+    puede_ver_todos = user_has_action(current, "servicios:ver_todos")
+    if not (puede_ver_todos or user_has_action(current, "servicios:administrar")):
         raise HTTPException(status_code=403, detail="Solo proveedores o admin")
     stmt = select(Service)
-    if current.role != Role.ADMIN:
+    if not puede_ver_todos:
         stmt = stmt.where(Service.provider_id == current.id)
     if active is not None:
         stmt = stmt.where(Service.active == active)
@@ -167,7 +169,7 @@ def update_service(service_id: int, payload: ServiceUpdatePayload, session: Sess
     svc = session.get(Service, service_id)
     if not svc or not svc.active:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
-    if current.role != Role.ADMIN and svc.provider_id != current.id:
+    if not user_has_action(current, "servicios:editar_cualquiera") and svc.provider_id != current.id:
         raise HTTPException(status_code=403, detail="No autorizado")
     if payload.price is not None and payload.price <= 0:
         raise HTTPException(status_code=400, detail="Precio debe ser > 0")
@@ -196,7 +198,7 @@ def deactivate_service(service_id: int, session: SessionDep, current: CurrentUse
     svc = session.get(Service, service_id)
     if not svc or not svc.active:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
-    if current.role != Role.ADMIN and svc.provider_id != current.id:
+    if not user_has_action(current, "servicios:editar_cualquiera") and svc.provider_id != current.id:
         raise HTTPException(status_code=403, detail="No autorizado")
     svc.active = False
     session.add(svc)
@@ -210,7 +212,7 @@ def upsert_images(service_id: int, images: List[ServiceImage], session: SessionD
     svc = session.get(Service, service_id)
     if not svc or not svc.active:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
-    if current.role != Role.ADMIN and svc.provider_id != current.id:
+    if not user_has_action(current, "servicios:editar_cualquiera") and svc.provider_id != current.id:
         raise HTTPException(status_code=403, detail="No autorizado")
     # remove old
     old = session.exec(select(ServiceImage).where(ServiceImage.service_id == service_id)).all()
@@ -237,7 +239,7 @@ def upsert_schedule(service_id: int, items: List[ServiceSchedule], session: Sess
     svc = session.get(Service, service_id)
     if not svc or not svc.active:
         raise HTTPException(status_code=404, detail="Servicio no encontrado")
-    if current.role != Role.ADMIN and svc.provider_id != current.id:
+    if not user_has_action(current, "servicios:editar_cualquiera") and svc.provider_id != current.id:
         raise HTTPException(status_code=403, detail="No autorizado")
     # validate
     for i in items:

@@ -14,7 +14,7 @@ from schema.reservations import (
 from schema.reviews import ReservationReview, ReservationReviewPublic
 from schema.services import Service
 from schema.users import User
-from core.enums import Role
+from core.permissions import user_has_action
 from routers.auth import get_current_user
 
 router = APIRouter(
@@ -87,7 +87,7 @@ def get_provider_reservations(session: SessionDep, current_user: CurrentUser):
     """
     Obtiene todas las reservas para los servicios ofrecidos por el usuario actual (como proveedor).
     """
-    if current_user.role != Role.PROVIDER:
+    if not user_has_action(current_user, "reservations:gestionar_como_proveedor"):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No eres un proveedor.",
@@ -159,7 +159,7 @@ def update_reservation_status(
                 detail="Solo el cliente puede cancelar esta reserva.",
             )
     elif new_status in (ReservationStatus.CANCELLED_BY_PROVIDER, ReservationStatus.COMPLETED):
-        if current_user.role != Role.PROVIDER:
+        if not user_has_action(current_user, "reservations:gestionar_como_proveedor"):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Solo el proveedor puede realizar esta acción.",

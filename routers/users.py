@@ -19,6 +19,9 @@ def get_my_profile(current_user: Annotated[User, Depends(get_current_user)]):
         province=current_user.province,
         city=current_user.city,
         role=current_user.role,
+        tipo_documento=current_user.tipo_documento,
+        nro_documento=current_user.nro_documento,
+        fecha_nacimiento=current_user.fecha_nacimiento,
     )
 
 @router.put("/me/profile", response_model=UserProfilePublic)
@@ -31,6 +34,12 @@ def update_my_profile(payload: UserProfileUpdate, current_user: Annotated[User, 
         current_user.province = payload.province
     if payload.city is not None:
         current_user.city = payload.city
+    if payload.tipo_documento is not None:
+        current_user.tipo_documento = payload.tipo_documento
+    if payload.nro_documento is not None:
+        current_user.nro_documento = payload.nro_documento
+    if payload.fecha_nacimiento is not None:
+        current_user.fecha_nacimiento = payload.fecha_nacimiento
 
     session.add(current_user)
     session.commit()
@@ -44,6 +53,9 @@ def update_my_profile(payload: UserProfileUpdate, current_user: Annotated[User, 
         province=current_user.province,
         city=current_user.city,
         role=current_user.role,
+        tipo_documento=current_user.tipo_documento,
+        nro_documento=current_user.nro_documento,
+        fecha_nacimiento=current_user.fecha_nacimiento,
     )
 
 @router.get("/me/history")

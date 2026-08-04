@@ -18,6 +18,7 @@ from routers.users import router as users_router
 from routers.reservations import router as reservations_router
 from routers.reviews import router as reviews_router
 from routers.payments import router as payments_router
+from routers.groups import router as groups_router
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -45,6 +46,7 @@ app.include_router(users_router)
 app.include_router(reservations_router)
 app.include_router(reviews_router)
 app.include_router(payments_router)
+app.include_router(groups_router)
 
 # Healthcheck / demo
 @app.get("/")

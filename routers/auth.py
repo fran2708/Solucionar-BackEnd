@@ -5,6 +5,7 @@
 #   - GET  /auth/me        
 # ------------------------------------------------------------
 from __future__ import annotations
+from datetime import datetime
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -14,6 +15,7 @@ from sqlmodel import Session, select
 from database import get_session
 from schema.users import User
 from schema.auth import RegisterRequest, UserPublic
+from schema.groups import Group
 from core.security import hash_password, verify_password
 from core.jwt import create_access_token, decode_token
 
@@ -34,10 +36,20 @@ def register(data: RegisterRequest, session: SessionDep):
         phone=data.phone,
         province=data.province,
         city=data.city,
+        tipo_documento=data.tipo_documento,
+        nro_documento=data.nro_documento,
+        fecha_nacimiento=data.fecha_nacimiento,
     )
     session.add(user)
     session.commit()
     session.refresh(user)
+
+    user_group = session.exec(select(Group).where(Group.name == user.role)).first()
+    if user_group:
+        user.groups.append(user_group)
+        session.add(user)
+        session.commit()
+
     return UserPublic(
         id=user.id,
         full_name=user.full_name,
@@ -66,7 +78,15 @@ def login(
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciales inválidas")
 
-    # Si implementas is_active en el modelo, reintroduce este check
+    if not user.is_active:
+        detail = "Usuario bloqueado"
+        if user.motivo_bloqueo:
+            detail = f"Usuario bloqueado: {user.motivo_bloqueo}"
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
+
+    user.ultimo_acceso = datetime.utcnow()
+    session.add(user)
+    session.commit()
 
     token = create_access_token(
         {"sub": str(user.id), "email": user.email, "role": user.role}
@@ -104,21 +124,6 @@ def me(current_user: Annotated[User, Depends(get_current_user)]):
         email=current_user.email,
         role=current_user.role,
     )
-
-def require_roles(*allowed: str):
-    """
-    Devuelve una dependencia que valida que el usuario actual tenga
-    alguno de los roles permitidos.
-    Uso: Depends(require_roles("ADMIN", "PROVEEDOR"))
-    """
-    def _dep(current: User = Depends(get_current_user)) -> User:
-        if current.role not in allowed:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No autorizado para este recurso",
-            )
-        return current
-    return _dep
 
 @router.post("/refresh")
 def refresh_token(current: User = Depends(get_current_user)):
