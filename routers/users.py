@@ -1,13 +1,22 @@
 from __future__ import annotations
-from typing import Annotated
+from typing import Annotated, List
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from routers.auth import get_current_user, SessionDep
+from core.permissions import require_action
 from schema.users import User
-from schema.auth import UserProfilePublic, UserProfileUpdate
+from schema.auth import UserProfilePublic, UserProfileUpdate, UserAdminPublic
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+AdminUser = Annotated[User, Depends(require_action("usuarios:administrar_permisos"))]
+
+
+@router.get("/", response_model=List[UserAdminPublic])
+def list_users(session: SessionDep, current: AdminUser):
+    return session.exec(select(User)).all()
+
 
 @router.get("/me/profile", response_model=UserProfilePublic)
 def get_my_profile(current_user: Annotated[User, Depends(get_current_user)]):
@@ -22,6 +31,9 @@ def get_my_profile(current_user: Annotated[User, Depends(get_current_user)]):
         tipo_documento=current_user.tipo_documento,
         nro_documento=current_user.nro_documento,
         fecha_nacimiento=current_user.fecha_nacimiento,
+        ultimo_acceso=current_user.ultimo_acceso,
+        motivo_bloqueo=current_user.motivo_bloqueo,
+        groups=current_user.groups,
     )
 
 @router.put("/me/profile", response_model=UserProfilePublic)
@@ -56,6 +68,9 @@ def update_my_profile(payload: UserProfileUpdate, current_user: Annotated[User, 
         tipo_documento=current_user.tipo_documento,
         nro_documento=current_user.nro_documento,
         fecha_nacimiento=current_user.fecha_nacimiento,
+        ultimo_acceso=current_user.ultimo_acceso,
+        motivo_bloqueo=current_user.motivo_bloqueo,
+        groups=current_user.groups,
     )
 
 @router.get("/me/history")

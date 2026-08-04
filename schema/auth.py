@@ -3,11 +3,12 @@
 # NO contienen endpoints ni lógica.
 # ------------------------------------------------------------
 from __future__ import annotations
-from datetime import date
+from datetime import date, datetime
 from pydantic import BaseModel, EmailStr
 from sqlmodel import SQLModel
-from typing import Optional
+from typing import List, Optional
 from core.enums import Role, TaxStatus, TipoDocumento
+from schema.groups import GroupPublic
 
 
 class RegisterIn(BaseModel):
@@ -55,6 +56,9 @@ class UserProfilePublic(SQLModel):
     tipo_documento: Optional[TipoDocumento] = None
     nro_documento: Optional[str] = None
     fecha_nacimiento: Optional[date] = None
+    ultimo_acceso: Optional[datetime] = None
+    motivo_bloqueo: Optional[str] = None
+    groups: List[GroupPublic] = []
 
 class UserProfileUpdate(SQLModel):
     full_name: str | None = None
@@ -91,3 +95,13 @@ class ProviderPublic(SQLModel):
     bank_alias: Optional[str] = None
     bank_cbu: Optional[str] = None
     # Campos eliminados de la API pública
+
+
+class UserAdminPublic(SQLModel):
+    id: int
+    full_name: str
+    email: str
+    role: Role
+    is_active: bool
+    motivo_bloqueo: Optional[str] = None
+    groups: List[GroupPublic] = []
